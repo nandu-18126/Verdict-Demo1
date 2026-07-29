@@ -35,6 +35,7 @@ CUT = 64600  # ~4.04s at 16kHz — AASIST's fixed input length
 N_CHUNKS = 20  # temporal chunks used for the SHAP masking scheme
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+torch.set_num_threads(2)
 
 _lock = threading.Lock()
 _model = None
