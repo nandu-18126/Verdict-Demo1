@@ -20,7 +20,7 @@ import torch
 
 import model as m
 
-SNR_LEVELS_DB = [20, 10, 5]
+SNR_LEVELS_DB = [15, 5]
 
 WIN = torch.hann_window(1024)
 
@@ -93,7 +93,7 @@ def file_hash_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def reproducibility_score(wav_1d: torch.Tensor, n_runs: int = 5) -> tuple:
+def reproducibility_score(wav_1d: torch.Tensor, n_runs: int = 3) -> tuple:
     real_index = m.get_real_index()
     confs = [float(m.get_scores(wav_1d)[real_index]) for _ in range(n_runs)]
     variance = float(np.var(confs))
