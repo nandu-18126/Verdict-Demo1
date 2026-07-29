@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VERDICT — Audio Deepfake Detection</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;0,6..72,700;1,6..72,500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0E1626;
+    --ink-2:#182238;
+    --paper:#EFECE3;
+    --paper-2:#E5E1D4;
+    --text:#1B2430;
+    --text-dim:#5B6472;
+    --brass:#B98A3D;
+    --verified:#3E7C5A;
+    --flagged:#B23A2E;
+    --rule: rgba(14,22,38,0.14);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--ink);
+    background-image:
+      radial-gradient(ellipse at top left, rgba(185,138,61,0.06), transparent 55%),
+      radial-gradient(ellipse at bottom right, rgba(62,124,90,0.05), transparent 55%);
+    color:var(--paper);
+    font-family:'IBM Plex Sans', sans-serif;
+    min-height:100vh;
+  }
+  .wrap{max-width:920px;margin:0 auto;padding:56px 24px 96px;}
+
+  .docket{
+    display:flex;justify-content:space-between;align-items:baseline;
+    border-bottom:1px solid rgba(239,236,227,0.18);
+    padding-bottom:18px;margin-bottom:36px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;letter-spacing:0.06em;
+    color:rgba(239,236,227,0.55);
+    text-transform:uppercase;
+  }
+
+  h1{
+    font-family:'Newsreader', serif;
+    font-weight:700;
+    font-size:clamp(38px, 6vw, 58px);
+    line-height:1.02;
+    margin:0 0 10px;
+    color:var(--paper);
+  }
+  .subtitle{
+    font-family:'Newsreader', serif;
+    font-style:italic;
+    font-weight:500;
+    font-size:18px;
+    color:rgba(239,236,227,0.7);
+    max-width:60ch;
+    margin:0 0 8px;
+  }
+  .lede{
+    color:rgba(239,236,227,0.55);
+    font-size:14.5px;
+    line-height:1.6;
+    max-width:62ch;
+    margin:18px 0 44px;
+  }
+  .lede b{color:rgba(239,236,227,0.85); font-weight:600;}
+
+  .panel{
+    background:var(--paper);
+    color:var(--text);
+    border-radius:2px;
+    box-shadow:0 24px 60px rgba(0,0,0,0.35);
+  }
+
+  .intake{padding:36px;}
+  .intake-label{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px; letter-spacing:0.08em; text-transform:uppercase;
+    color:var(--text-dim); margin-bottom:14px; display:block;
+  }
+
+  .dropzone{
+    border:1.5px dashed rgba(27,36,48,0.3);
+    border-radius:2px;
+    padding:36px 24px;
+    text-align:center;
+    cursor:pointer;
+    transition:border-color .15s, background .15s;
+    background:rgba(255,255,255,0.35);
+  }
+  .dropzone:hover, .dropzone.drag{
+    border-color:var(--brass);
+    background:rgba(185,138,61,0.06);
+  }
+  .dropzone input{display:none;}
+  .dz-title{font-family:'Newsreader', serif; font-size:19px; font-weight:600; margin-bottom:4px;}
+  .dz-sub{font-size:13px; color:var(--text-dim);}
+  .filename{
+    margin-top:14px; font-family:'IBM Plex Mono', monospace; font-size:12.5px;
+    color:var(--text); word-break:break-all;
+  }
+
+  .submit-row{display:flex; align-items:center; gap:16px; margin-top:22px;}
+  button.analyze{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12.5px; letter-spacing:0.06em; text-transform:uppercase;
+    background:var(--ink); color:var(--paper);
+    border:none; padding:13px 26px; border-radius:2px; cursor:pointer;
+    transition:opacity .15s;
+  }
+  button.analyze:disabled{opacity:0.35; cursor:not-allowed;}
+  button.analyze:not(:disabled):hover{opacity:0.85;}
+  .status{font-size:13px; color:var(--text-dim); font-family:'IBM Plex Mono', monospace;}
+
+  .error{
+    margin-top:18px; padding:12px 14px; border-left:3px solid var(--flagged);
+    background:rgba(178,58,46,0.08); font-size:13.5px; color:#7a2a21;
+    display:none;
+  }
+
+  /* ---- results ---- */
+  #results{display:none; margin-top:28px;}
+  .report{padding:0;}
+  .report-head{
+    display:flex; justify-content:space-between; align-items:flex-start;
+    padding:32px 36px 24px; border-bottom:1px solid var(--rule);
+  }
+  .case-meta{font-family:'IBM Plex Mono', monospace; font-size:11.5px; color:var(--text-dim); line-height:1.7;}
+  .case-meta div span{color:var(--text);}
+
+  .stamp{
+    font-family:'IBM Plex Mono', monospace;
+    font-weight:600; font-size:15px; letter-spacing:0.09em;
+    padding:9px 16px; border:2px solid currentColor; border-radius:3px;
+    transform:rotate(-3deg);
+    text-transform:uppercase;
+  }
+  .stamp.real{color:var(--verified);}
+  .stamp.fake{color:var(--flagged);}
+
+  .confidence-row{
+    display:flex; align-items:baseline; gap:14px;
+    padding:22px 36px; border-bottom:1px solid var(--rule);
+  }
+  .confidence-num{font-family:'Newsreader', serif; font-weight:700; font-size:48px; line-height:1;}
+  .confidence-label{font-size:13px; color:var(--text-dim); max-width:36ch;}
+
+  .scores{
+    display:grid; grid-template-columns:repeat(3, 1fr);
+    border-bottom:1px solid var(--rule);
+  }
+  .score-cell{padding:22px 24px; border-right:1px solid var(--rule);}
+  .score-cell:last-child{border-right:none;}
+  .score-key{font-family:'IBM Plex Mono', monospace; font-size:11px; letter-spacing:0.07em; text-transform:uppercase; color:var(--text-dim); margin-bottom:8px;}
+  .score-val{font-family:'Newsreader', serif; font-weight:700; font-size:30px; margin-bottom:10px;}
+  .bar-track{height:4px; background:var(--paper-2); border-radius:2px; overflow:hidden;}
+  .bar-fill{height:100%; border-radius:2px; background:var(--brass);}
+  .score-desc{font-size:11.5px; color:var(--text-dim); margin-top:8px; line-height:1.5;}
+
+  .addendum{padding:24px 36px;}
+  .addendum-title{font-family:'IBM Plex Mono', monospace; font-size:11px; letter-spacing:0.07em; text-transform:uppercase; color:var(--text-dim); margin-bottom:10px;}
+  .addendum-body{font-size:14px; line-height:1.65;}
+  .addendum-body b{font-family:'IBM Plex Mono', monospace; font-weight:600;}
+
+  .disclaimer{
+    padding:18px 36px 28px; font-size:12px; color:var(--text-dim);
+    border-top:1px solid var(--rule); line-height:1.6;
+  }
+
+  footer{
+    max-width:920px; margin:56px auto 0; padding:0 24px;
+    font-size:12px; color:rgba(239,236,227,0.4); font-family:'IBM Plex Mono', monospace;
+  }
+  a{color:var(--brass);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="docket">
+    <span>VERDICT — Case Intake</span>
+    <span id="clock"></span>
+  </div>
+
+  <h1>Does this recording hold up?</h1>
+  <p class="subtitle">A multi-criteria audio deepfake evaluation, built for scrutiny — not just a score.</p>
+  <p class="lede">
+    Upload a clip and VERDICT runs it through <b>classification</b> (AASIST), <b>explanation</b>
+    (SHAP-based attribution), and three independently-reported scores: <b>Robustness</b>,
+    <b>Explainability</b>, and <b>Legal-Alignment</b>. Nothing here is folded into one blended number —
+    see exactly where a result is strong and where it isn't.
+  </p>
+
+  <div class="panel intake">
+    <span class="intake-label">01 · Submit Audio</span>
+    <div class="dropzone" id="dropzone">
+      <div class="dz-title">Drop a clip here, or click to browse</div>
+      <div class="dz-sub">WAV, MP3, FLAC, M4A — a few seconds of speech is enough</div>
+      <div class="filename" id="filename"></div>
+      <input type="file" id="fileInput" accept="audio/*">
+    </div>
+    <div class="submit-row">
+      <button class="analyze" id="analyzeBtn" disabled>Run VERDICT</button>
+      <span class="status" id="status"></span>
+    </div>
+    <div class="error" id="error"></div>
+  </div>
+
+  <div id="results" class="panel report">
+    <div class="report-head">
+      <div class="case-meta">
+        <div>FILE &nbsp; <span id="metaFile"></span></div>
+        <div>DURATION &nbsp; <span id="metaDuration"></span></div>
+        <div>CLASSIFIER OUTPUT INDEX &nbsp; <span id="metaIndex"></span></div>
+      </div>
+      <div class="stamp" id="stamp"></div>
+    </div>
+
+    <div class="confidence-row">
+      <div class="confidence-num" id="confNum"></div>
+      <div class="confidence-label">confidence that this clip is genuine speech, per Stage 2 classification</div>
+    </div>
+
+    <div class="scores">
+      <div class="score-cell">
+        <div class="score-key">Robustness (R)</div>
+        <div class="score-val" id="scoreR"></div>
+        <div class="bar-track"><div class="bar-fill" id="barR"></div></div>
+        <div class="score-desc">How well the verdict held up under 20/10/5 dB added noise, after enhancement.</div>
+      </div>
+      <div class="score-cell">
+        <div class="score-key">Explainability (E)</div>
+        <div class="score-val" id="scoreE"></div>
+        <div class="bar-track"><div class="bar-fill" id="barE"></div></div>
+        <div class="score-desc">How tightly the SHAP attribution concentrates on one region vs. spreading diffusely.</div>
+      </div>
+      <div class="score-cell">
+        <div class="score-key">Legal-Alignment (L)</div>
+        <div class="score-val" id="scoreL"></div>
+        <div class="bar-track"><div class="bar-fill" id="barL"></div></div>
+        <div class="score-desc">Reproducibility, chain-of-custody, transparency, and non-tampering checks.</div>
+      </div>
+    </div>
+
+    <div class="addendum">
+      <div class="addendum-title">Stage 3 — Where the model looked</div>
+      <div class="addendum-body" id="explainText"></div>
+    </div>
+
+    <div class="disclaimer" id="disclaimerText"></div>
+  </div>
+</div>
+
+<footer>
+  VERDICT is a research pilot accompanying an IEEE submission on multi-criteria audio deepfake detection for Indian languages. Not a certified forensic tool.
+</footer>
+
+<script>
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+const filenameEl = document.getElementById('filename');
+const analyzeBtn = document.getElementById('analyzeBtn');
+const statusEl = document.getElementById('status');
+const errorEl = document.getElementById('error');
+const resultsEl = document.getElementById('results');
+
+let selectedFile = null;
+
+document.getElementById('clock').textContent = new Date().toISOString().slice(0,10).replace(/-/g,'.');
+
+dropzone.addEventListener('click', () => fileInput.click());
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropzone.classList.remove('drag');
+  if (e.dataTransfer.files.length) setFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', e => { if (e.target.files.length) setFile(e.target.files[0]); });
+
+function setFile(f) {
+  selectedFile = f;
+  filenameEl.textContent = f.name;
+  analyzeBtn.disabled = false;
+  errorEl.style.display = 'none';
+}
+
+analyzeBtn.addEventListener('click', async () => {
+  if (!selectedFile) return;
+  analyzeBtn.disabled = true;
+  statusEl.textContent = 'Running Stage 2–4 (this can take 10–30s, SHAP is slow on CPU)…';
+  errorEl.style.display = 'none';
+  resultsEl.style.display = 'none';
+
+  const form = new FormData();
+  form.append('file', selectedFile);
+
+  try {
+    const res = await fetch('/analyze', { method: 'POST', body: form });
+    if (!res.ok) {
+      const detail = await res.json().catch(() => ({}));
+      throw new Error(detail.detail || `Request failed (${res.status})`);
+    }
+    const data = await res.json();
+    render(data, selectedFile.name);
+    statusEl.textContent = '';
+  } catch (e) {
+    errorEl.textContent = e.message;
+    errorEl.style.display = 'block';
+    statusEl.textContent = '';
+  } finally {
+    analyzeBtn.disabled = false;
+  }
+});
+
+function render(data, filename) {
+  document.getElementById('metaFile').textContent = filename;
+  document.getElementById('metaDuration').textContent = data.duration_sec + 's';
+  document.getElementById('metaIndex').textContent = data.real_index_used;
+
+  const stamp = document.getElementById('stamp');
+  const isReal = data.verdict === 'real';
+  stamp.textContent = isReal ? 'Consistent with genuine' : 'Flagged as synthetic';
+  stamp.className = 'stamp ' + (isReal ? 'real' : 'fake');
+
+  document.getElementById('confNum').textContent = Math.round(data.confidence_real * 100) + '%';
+  document.getElementById('confNum').style.color = isReal ? 'var(--verified)' : 'var(--flagged)';
+
+  setScore('R', data.scores.robustness_R);
+  setScore('E', data.scores.explainability_E);
+  setScore('L', data.scores.legal_alignment_L);
+
+  const win = data.explainability_detail.top_chunk_time_window_sec;
+  document.getElementById('explainText').innerHTML =
+    `The classifier's decision concentrated most heavily on <b>${win[0]}s–${win[1]}s</b> ` +
+    `(chunk ${data.explainability_detail.top_contributing_chunk + 1} of 20). ` +
+    data.explainability_detail.note;
+
+  document.getElementById('disclaimerText').textContent = data.disclaimer;
+
+  resultsEl.style.display = 'block';
+  resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function setScore(key, val) {
+  document.getElementById('score' + key).textContent = val;
+  document.getElementById('bar' + key).style.width = Math.max(0, Math.min(100, val)) + '%';
+}
+</script>
+</body>
+</html>
