@@ -69,7 +69,7 @@ async def analyze(file: UploadFile = File(...)):
         verdict = "real" if confidence_real >= 0.5 else "synthetic"
 
         # Stage 3 — explainability (SHAP)
-        E, top_chunk, attribution = m.explain_clip(wav, real_index, nsamples=100)
+        E, top_chunk, attribution = m.explain_clip(wav, real_index, nsamples=40)
         chunk_start = round(top_chunk * (duration_sec / m.N_CHUNKS if duration_sec > 0 else 0.2), 2)
         chunk_end = round((top_chunk + 1) * (duration_sec / m.N_CHUNKS if duration_sec > 0 else 0.2), 2)
 
